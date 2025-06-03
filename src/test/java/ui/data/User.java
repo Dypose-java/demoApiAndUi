@@ -7,10 +7,10 @@ import org.aeonbits.owner.Config;
         "system:properties"})
 public interface User extends Config {
     @Key("login")
-    public String login();
+    String login();
 
     @Key("password")
-    public String password();
+    String password();
 
 }
 

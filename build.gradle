@@ -45,7 +45,9 @@ dependencies {
             "io.qameta.allure:allure-rest-assured:$allureVersion",
             "org.aspectj:aspectjweaver:1.9.22",
             "com.github.javafaker:javafaker:1.0.2",
-            "org.slf4j:slf4j-simple:$slf4jVersion")
+            "org.slf4j:slf4j-simple:$slf4jVersion",
+            "io.appium:java-client:9.3.0"
+    )
 }
 tasks.withType(JavaExec) {
     jvmArgs '-Dfile.encoding=UTF-8'

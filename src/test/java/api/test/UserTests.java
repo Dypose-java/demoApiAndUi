@@ -1,10 +1,10 @@
-package api.tests;
+package api.test;
 
 import api.config.ApiConfig;
 import api.data.CreateUser;
 import api.pojo.get.UserPojo;
 import api.pojo.post.ResponsesUserPojo;
-import api.steps.UserApiSteps;
+import api.step.UserApiSteps;
 import io.qameta.allure.*;
 import org.junit.jupiter.api.*;
 
@@ -13,8 +13,9 @@ import java.util.stream.IntStream;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
-@Epic("API Тесты")
+@Epic("API Тесты пользователей")
 @Tag("API")
+@Feature("Управление пользователями")
 public class UserTests extends ApiConfig {
     private static UserPojo originalUser;
     private UserPojo copyUser;
@@ -32,7 +33,8 @@ public class UserTests extends ApiConfig {
     }
 
     @Test
-    @DisplayName("Получаем пользователя")
+    @DisplayName("Получение данных пользователя")
+    @Description("Проверка корректного получения данных пользователя по username")
     @Severity(SeverityLevel.NORMAL)
     @Feature("User")
     @Story("Get")
@@ -44,7 +46,8 @@ public class UserTests extends ApiConfig {
     }
 
     @Test
-    @DisplayName("Изменяем пользователя")
+    @DisplayName("Обновление данных пользователя")
+    @Description("Проверка успешного обновления данных пользователя")
     @Severity(SeverityLevel.BLOCKER)
     @Feature("User")
     @Story("Put")
@@ -56,7 +59,8 @@ public class UserTests extends ApiConfig {
     }
 
     @Test
-    @DisplayName("Удаляем пользователя")
+    @DisplayName("Удаление пользователя")
+    @Description("Проверка успешного удаления пользователя")
     @Severity(SeverityLevel.BLOCKER)
     @Feature("User")
     @Story("Delete")
@@ -68,7 +72,8 @@ public class UserTests extends ApiConfig {
     }
 
     @Test
-    @DisplayName("Добавляем лист пользователей")
+    @DisplayName("Добавление списка пользователей")
+    @Description("Проверка создания списка пользователей")
     @Severity(SeverityLevel.BLOCKER)
     @Feature("User")
     @Story("Post")

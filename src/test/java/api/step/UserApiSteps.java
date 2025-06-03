@@ -1,4 +1,4 @@
-package api.steps;
+package api.step;
 
 import api.config.ApiConfig;
 import api.pojo.get.UserPojo;

@@ -16,12 +16,20 @@ import java.util.Map;
 import java.util.Objects;
 
 public class BaseTest {
+    //если нужен запуск из идеи
+    /*static {
+        System.setProperty("tag","UI");
+        System.setProperty("runIn","browser_local");
+    }*/
+
     private static final BrowserConfig config = BrowserConfigFactory.PROP;
 
     @BeforeAll
     static void setUp() {
         configureBasicSettings();
-        configureBrowserSpecificSettings();
+        if (isSelenoidRun()){
+            configureSelenoidSettings();
+        }
     }
 
     private static void configureBasicSettings() {
@@ -32,13 +40,16 @@ public class BaseTest {
         Configuration.pageLoadTimeout = config.pageLoadTimeout();
         Configuration.headless = config.headless();
     }
+    private static boolean isSelenoidRun() {
+        return "browser_selenoid".equals(config.runIn());
+    }
 
-    private static void configureBrowserSpecificSettings() {
-        if ("browser_selenoid".equals(config.runIn())) {
+    private static void configureSelenoidSettings() {
+        if (isSelenoidRun()) {
             Configuration.remote = config.remote();
             Configuration.browserVersion = config.version();
 
-            switch (config.browser()) {
+            switch (config.browser().toLowerCase()) {
                 case "chrome" -> setupChrome();
                 case "firefox" -> setupFirefox();
                 case "opera" -> setupOpera();
@@ -86,7 +97,7 @@ public class BaseTest {
             Attach.browserConsoleLogs();
         }
 
-        if ("browser_selenoid".equals(System.getProperty("runIn"))) {
+        if (isSelenoidRun()) {
             Attach.addVideo();
         }
     }
