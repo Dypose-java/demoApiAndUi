@@ -27,7 +27,7 @@ pipeline {
 
         stage('Run API Tests') {
             steps {
-                sh 'clean test -Dtag=API'
+                sh './gradlew clean test -Dtag=API'
             }
             post {
                 always {
@@ -39,7 +39,7 @@ pipeline {
 
         stage('Run UI Tests') {
             steps {
-                sh 'clean test -Dtag=UI -DrunIn=browser_local'
+                sh './gradlew test -Dtag=UI -DrunIn=browser_selenoid'
             }
             post {
                 always {
