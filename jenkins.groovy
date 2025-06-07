@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        SELENOID_URL = 'http://127.0.0.1:4444/wd/hub'
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -20,18 +24,14 @@ pipeline {
                 stage('UI Tests') {
                     steps {
                         script {
-                            // Генерируем уникальный user-data-dir для каждого запуска
-                            def userDataDir = "/tmp/chrome-profile-${UUID.randomUUID()}"
-
                             sh """
                                 ./gradlew clean test \
                                 -Dtag=UI \
-                                -DrunIn=browser_local \
-                                -Dchrome.args="--user-data-dir=${userDataDir}" 
+                                -DrunIn=browser_selenoid \
+                                -Dselenide.remote=${env.SELENOID_URL} \
+                                -Dselenoid.options.enableVNC=true \
+                                -Dselenoid.options.enableVideo=true
                             """
-
-                            // Очищаем временный профиль
-                            sh "rm -rf ${userDataDir} || true"
                         }
                     }
                 }
