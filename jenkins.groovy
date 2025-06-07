@@ -37,7 +37,7 @@ node {
                             runTestWithTag("API")
                         },
                         'Ui Tests': {
-                            sh "./gradle clean test -Dtag=UI -DrunIn=browser_selenoid"
+                            sh "./gradlew clean test -Dtag=UI -DrunIn=browser_selenoid"
                             //runTestWithTag("UI", "browser_selenoid")
                         }
                 )
