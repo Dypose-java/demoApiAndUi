@@ -2,12 +2,6 @@ pipeline {
     agent any
 
     environment {
-      /*  // Настройки Selenoid
-        SELENOID_URL = 'http://selenoid:4444/wd/hub'
-        BROWSER = 'chrome'
-        BROWSER_VERSION = '127.0'*/
-
-        // Настройки Allure
         ALLURE_RESULTS = 'build/allure-results'
         ALLURE_REPORT = 'build/allure-report'
     }
@@ -19,11 +13,11 @@ pipeline {
             }
         }
 
-        /*stage('Clean workspace') {
+        stage('Set Permissions') {
             steps {
-                sh './gradlew clean'
+                sh 'chmod +x gradlew'  // Критически важный этап
             }
-        }*/
+        }
 
         stage('Run API Tests') {
             steps {
@@ -31,8 +25,7 @@ pipeline {
             }
             post {
                 always {
-                    // Сохраняем результаты для Allure
-                    allure includeProperties: false, jdk: '', results: [[path: 'build/allure-results/api']]
+                    allure includeProperties: false, results: [[path: 'build/allure-results/api']]
                 }
             }
         }
@@ -43,8 +36,7 @@ pipeline {
             }
             post {
                 always {
-                    // Сохраняем результаты для Allure
-                    allure includeProperties: false, jdk: '', results: [[path: 'build/allure-results/ui']]
+                    allure includeProperties: false, results: [[path: 'build/allure-results/ui']]
                 }
             }
         }
@@ -52,15 +44,11 @@ pipeline {
         stage('Generate Allure Report') {
             steps {
                 script {
-                    // Объединяем результаты API и UI тестов
                     sh 'mkdir -p build/allure-results/combined'
                     sh 'cp -r build/allure-results/api/* build/allure-results/combined/ || true'
                     sh 'cp -r build/allure-results/ui/* build/allure-results/combined/ || true'
-
-                    // Генерируем отчет
                     allure([
                             includeProperties: false,
-                            jdk: '',
                             report: 'build/allure-report',
                             results: [[path: 'build/allure-results/combined']]
                     ])
@@ -71,22 +59,7 @@ pipeline {
 
     post {
         always {
-            // Публикуем Allure отчет
-            allure([
-                    includeProperties: false,
-                    jdk: '',
-                    report: 'build/allure-report',
-                    results: [[path: 'build/allure-results/combined']]
-            ])
-
-            // Очистка workspace
             cleanWs()
-        }
-        success {
-            slackSend channel: '#reports', message: "Тесты завершены. Allure отчет: ${env.BUILD_URL}allure/"
-        }
-        failure {
-            slackSend channel: '#reports', message: "Некоторые тесты упали. Allure отчет: ${env.BUILD_URL}allure/"
         }
     }
 }
