@@ -6,13 +6,12 @@ pipeline {
         BROWSER = 'chrome'
         BROWSER_VERSION = '127.0'
         ALLURE_RESULTS = 'build/allure-results'
-        ALLURE_REPORT = 'build/allure-report'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/Dypose-java/demoApiAndUi'
+                git branch: 'main', url: 'https://github.com/Dypose-java/demoProjectTestUIAPIMOBILE.git'
             }
         }
 
@@ -22,44 +21,50 @@ pipeline {
             }
         }
 
-        stage('Check Selenoid') {
-            steps {
-                script {
-                    sh '''
-                        echo "Checking Selenoid connection..."
-                        curl -v $SELENOID_URL/status || true
-                    '''
+        stage('Run Tests') {
+            failFast false // Продолжать выполнение при падении тестов
+            parallel {
+                stage('API Tests') {
+                    steps {
+                        script {
+                            try {
+                                sh './gradlew clean test -Dtag=API'
+                            } catch (e) {
+                                echo "API tests failed: ${e.getMessage()}"
+                                currentBuild.result = 'UNSTABLE'
+                            }
+                        }
+                    }
+                    post {
+                        always {
+                            allure includeProperties: false, results: [[path: 'build/allure-results']]
+                        }
+                    }
                 }
-            }
-        }
 
-        stage('Run API Tests') {
-            steps {
-                sh './gradlew clean test -Dtag=API'
-            }
-            post {
-                always {
-                    allure includeProperties: false, results: [[path: 'build/allure-results']]
-                }
-            }
-        }
-
-        stage('Run UI Tests') {
-            steps {
-                script {
-                    sh """
-                        ./gradlew test \
-                        -Dtag=UI \
-                        -DrunIn=browser_selenoid \
-                        -Dselenoid.url=$SELENOID_URL \
-                        -Dbrowser=$BROWSER \
-                        -Dbrowser.version=$BROWSER_VERSION
-                    """
-                }
-            }
-            post {
-                always {
-                    allure includeProperties: false, results: [[path: 'build/allure-results']]
+                stage('UI Tests') {
+                    steps {
+                        script {
+                            try {
+                                sh """
+                                    ./gradlew clean test \
+                                    -Dtag=UI \
+                                    -DrunIn=browser_selenoid \
+                                    -Dselenoid.url=${env.SELENOID_URL} \
+                                    -Dbrowser=${env.BROWSER} \
+                                    -Dbrowser.version=${env.BROWSER_VERSION}
+                                """
+                            } catch (e) {
+                                echo "UI tests failed: ${e.getMessage()}"
+                                currentBuild.result = 'UNSTABLE'
+                            }
+                        }
+                    }
+                    post {
+                        always {
+                            allure includeProperties: false, results: [[path: 'build/allure-results']]
+                        }
+                    }
                 }
             }
         }
@@ -67,7 +72,6 @@ pipeline {
         stage('Generate Allure Report') {
             steps {
                 script {
-                    sh 'mkdir -p build/allure-results'
                     allure([
                             includeProperties: false,
                             report: 'build/allure-report',
@@ -82,6 +86,18 @@ pipeline {
         always {
             archiveArtifacts artifacts: 'build/allure-report/**', fingerprint: true
             cleanWs()
+        }
+        success {
+            slackSend channel: '#reports',
+                    message: "Тесты завершены. Allure отчет: ${env.BUILD_URL}allure/"
+        }
+        unstable {
+            slackSend channel: '#reports',
+                    message: "Некоторые тесты упали. Allure отчет: ${env.BUILD_URL}allure/"
+        }
+        failure {
+            slackSend channel: '#reports',
+                    message: "Сборка провалена. Подробности: ${env.BUILD_URL}"
         }
     }
 }
