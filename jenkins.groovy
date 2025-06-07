@@ -19,15 +19,15 @@ pipeline {
             }
         }
 
-        stage('Clean workspace') {
+        /*stage('Clean workspace') {
             steps {
-                sh ' clean'
+                sh './gradlew clean'
             }
-        }
+        }*/
 
         stage('Run API Tests') {
             steps {
-                sh 'gradle test -Dtag=API'
+                sh 'clean test -Dtag=API'
             }
             post {
                 always {
@@ -39,11 +39,7 @@ pipeline {
 
         stage('Run UI Tests') {
             steps {
-                sh """
-                    gradle test \
-                    -Dtag=UI \
-                    -DrunIn=browser_selenoid 
-                """
+                sh 'clean test -Dtag=UI -DrunIn=browser_local'
             }
             post {
                 always {
