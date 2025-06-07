@@ -15,13 +15,13 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/Dypose-java/demoProjectTestUIAPIMOBILE.git'
+                git branch: 'main', url: 'https://github.com/Dypose-java/demoApiAndUi'
             }
         }
 
         stage('Clean workspace') {
             steps {
-                sh 'gradle clean'
+                sh ' clean'
             }
         }
 
