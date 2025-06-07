@@ -3,7 +3,6 @@ def branch_cutted = task_branch.contains("origin") ? task_branch.split('/')[1] :
 currentBuild.displayName = "$branch_cutted"
 base_git_url = "https://github.com/Dypose-java/demoApiAndUi.git"
 
-
 node {
     withEnv(["branch=${branch_cutted}", "base_url=${base_git_url}"]) {
         stage("Checkout Branch") {
@@ -11,14 +10,25 @@ node {
                 try {
                     getProject("$base_git_url", "$branch_cutted")
                 } catch (err) {
-                    echo "Failed get branch $branch_cutted"
-                    throw ("${err}")
+                    echo "Failed to checkout branch $branch_cutted"
+                    currentBuild.result = 'FAILURE'
+                    error("Failed to checkout branch: ${err}")
                 }
             } else {
                 echo "Current branch is main"
+                checkout scm // Для main ветки используем стандартный checkout
+            }
+
+            // Проверяем наличие gradlew после checkout
+            if (!fileExists('gradlew')) {
+                error("gradlew file not found in the project root!")
             }
         }
 
+        stage("Prepare Workspace") {
+            sh 'ls -la' // Для отладки - посмотрим содержимое директории
+            sh 'chmod +x gradlew' // Даем права на выполнение
+        }
 
         try {
             stage("Run tests") {
@@ -27,10 +37,13 @@ node {
                             runTestWithTag("API")
                         },
                         'Ui Tests': {
-                            runTestWithTag("UI","browser_selenoid")
+                            runTestWithTag("UI", "browser_selenoid")
                         }
                 )
             }
+        } catch (err) {
+            echo "Tests execution failed: ${err}"
+            currentBuild.result = 'UNSTABLE'
         } finally {
             stage("Allure") {
                 generateAllure()
@@ -38,7 +51,6 @@ node {
         }
     }
 }
-
 
 def getTestStages(testTags) {
     def stages = [:]
@@ -50,23 +62,21 @@ def getTestStages(testTags) {
     return stages
 }
 
-
 def runTestWithTag(String tag, String runIn = null) {
     try {
-        // Формируем команду Gradle
+        // Проверяем наличие gradlew перед выполнением
+        if (!fileExists('gradlew')) {
+            error("gradlew file not found when trying to run ${tag} tests!")
+        }
+
         def gradleCommand = "./gradlew clean test -Dtag=${tag}"
 
-        // Добавляем параметр runIn если он указан
         if (runIn) {
             gradleCommand += " -DrunIn=${runIn}"
         }
 
-        // Выполняем команду с лейблом
-        labelledShell(label: "Run ${tag}" + (runIn ? " (${runIn})" : ""),
-                script: """
-                    chmod +x gradlew
-                    ${gradleCommand}
-                    """)
+        sh label: "Run ${tag}" + (runIn ? " (${runIn})" : ""),
+                script: gradleCommand
 
         return true
     } catch (Exception e) {
@@ -78,20 +88,34 @@ def runTestWithTag(String tag, String runIn = null) {
 
 def getProject(String repo, String branch) {
     cleanWs()
-    checkout scm: [
-            $class           : 'GitSCM', branches: [[name: branch]],
-            userRemoteConfigs: [[
-                                        url: repo
-                                ]]
-    ]
+    checkout([
+            $class: 'GitSCM',
+            branches: [[name: branch]],
+            extensions: [[
+                                 $class: 'RelativeTargetDirectory',
+                                 relativeTargetDir: 'project'
+                         ]],
+            userRemoteConfigs: [[url: repo]]
+    ])
+    dir('project') {
+        // Теперь рабочая директория - project
+    }
 }
 
 def generateAllure() {
-    allure([
-            includeProperties: true,
-            jdk              : '',
-            properties       : [],
-            reportBuildPolicy: 'ALWAYS',
-            results          : [[path: 'build/allure-results']]
-    ])
+    try {
+        if (fileExists('build/allure-results')) {
+            allure([
+                    includeProperties: true,
+                    jdk: '',
+                    properties: [],
+                    reportBuildPolicy: 'ALWAYS',
+                    results: [[path: 'build/allure-results']]
+            ])
+        } else {
+            echo "No Allure results found to generate report"
+        }
+    } catch (err) {
+        echo "Failed to generate Allure report: ${err}"
+    }
 }
