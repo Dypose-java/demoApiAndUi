@@ -4,30 +4,27 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: '*/main']],  // Явно указываем ветку
-                        extensions: [],
-                        userRemoteConfigs: [[
-                                                    url: 'https://github.com/Dypose-java/demoApiAndUi.git',
-                                                    credentialsId: ''  // Оставьте пустым для публичного репозитория
-                                            ]]
-                ])
-                sh 'chmod +x gradlew'  // Даем права на выполнение
+                checkout scm
+                sh 'chmod +x gradlew'
             }
         }
 
-        stage('Run Tests') {
-            parallel {
-                stage('API Tests') {
-                    steps {
-                        sh './gradlew clean test -Dtag=API'
-                    }
-                }
-                stage('UI Tests') {
-                    steps {
-                        sh './gradlew clean test -Dtag=UI -DrunIn=browser_local'
-                    }
+        stage('Run API Tests') {
+            when { expression { params.RUN_TAG == 'API' } }
+            steps {
+                sh './gradlew clean test -Dtag=API'
+            }
+        }
+
+        stage('Run UI Tests') {
+            when { expression { params.RUN_TAG == 'UI' } }
+            steps {
+                // Устанавливаем системные свойства для UI тестов
+                withEnv([
+                        'selenide.runIn=browser_selenoid',
+                        'selenide.chromeoptions.args=--headless,--no-sandbox,--disable-dev-shm-usage,--disable-gpu'
+                ]) {
+                    sh './gradlew clean test -Dtag=UI -DrunIn=browser_selenoid'
                 }
             }
         }
@@ -43,4 +40,8 @@ pipeline {
             cleanWs()
         }
     }
+}
+
+parameters {
+    choice(name: 'RUN_TAG', choices: ['API', 'UI', 'ALL'], description: 'Что запускать?')
 }
