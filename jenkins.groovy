@@ -19,7 +19,6 @@ pipeline {
         stage('Run UI Tests') {
             when { expression { params.RUN_TAG == 'UI' } }
             steps {
-                // Устанавливаем системные свойства для UI тестов
                 withEnv([
                         'selenide.runIn=browser_selenoid',
                         'selenide.chromeoptions.args=--headless,--no-sandbox,--disable-dev-shm-usage,--disable-gpu'
