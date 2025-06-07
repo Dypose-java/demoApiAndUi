@@ -28,7 +28,7 @@ pipeline {
                     steps {
                         script {
                             try {
-                                sh './gradlew clean test -Dtag=API'
+                                sh 'clean test -Dtag=API'
                             } catch (e) {
                                 echo "API tests failed: ${e.getMessage()}"
                                 currentBuild.result = 'UNSTABLE'
@@ -47,7 +47,7 @@ pipeline {
                         script {
                             try {
                                 sh """
-                                    ./gradlew clean test \
+                                     clean test \
                                     -Dtag=UI \
                                     -DrunIn=browser_selenoid \
                                     -Dselenoid.url=${env.SELENOID_URL} \
