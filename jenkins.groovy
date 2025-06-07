@@ -2,9 +2,6 @@ pipeline {
     agent any
 
     environment {
-        SELENOID_URL = 'http://127.0.0.1:4444/wd/hub'
-        BROWSER = 'chrome'
-        BROWSER_VERSION = '127.0'
         ALLURE_RESULTS = 'build/allure-results'
     }
 
@@ -28,7 +25,7 @@ pipeline {
                     steps {
                         script {
                             try {
-                                sh 'gradle clean test -Dtag=API'
+                                sh './gradlew clean test -Dtag=API'
                             } catch (e) {
                                 echo "API tests failed: ${e.getMessage()}"
                                 currentBuild.result = 'UNSTABLE'
@@ -47,12 +44,9 @@ pipeline {
                         script {
                             try {
                                 sh """
-                                    gradle clean test \
+                                    ./gradlew clean test \
                                     -Dtag=UI \
-                                    -DrunIn=browser_selenoid \
-                                    -Dselenoid.url=${env.SELENOID_URL} \
-                                    -Dbrowser=${env.BROWSER} \
-                                    -Dbrowser.version=${env.BROWSER_VERSION}
+                                    -DrunIn=browser_selenoid 
                                 """
                             } catch (e) {
                                 echo "UI tests failed: ${e.getMessage()}"
