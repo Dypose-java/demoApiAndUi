@@ -3,6 +3,8 @@ pipeline {
 
     environment {
         SELENOID_URL = 'http://127.0.0.1:4444/wd/hub'
+        BROWSER = 'chrome'
+        BROWSER_VERSION = '127.0'
         ALLURE_RESULTS = 'build/allure-results'
         ALLURE_REPORT = 'build/allure-report'
     }
@@ -48,7 +50,10 @@ pipeline {
                     sh """
                         ./gradlew test \
                         -Dtag=UI \
-                        -DrunIn=browser_selenoid 
+                        -DrunIn=browser_selenoid \
+                        -Dselenoid.url=$SELENOID_URL \
+                        -Dbrowser=$BROWSER \
+                        -Dbrowser.version=$BROWSER_VERSION
                     """
                 }
             }
