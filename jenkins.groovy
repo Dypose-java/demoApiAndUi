@@ -1,117 +1,97 @@
-pipeline {
-    agent any
+task_branch = "${TEST_BRANCH_NAME}"
+def branch_cutted = task_branch.contains("origin") ? task_branch.split('/')[1] : task_branch.trim()
+currentBuild.displayName = "$branch_cutted"
+base_git_url = "https://github.com/Dypose-java/demoApiAndUi.git"
 
-    environment {
-        ALLURE_RESULTS = 'build/allure-results'
-        ALLURE_REPORT = 'build/allure-report'
-    }
 
-    stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'main', url: 'https://github.com/Dypose-java/demoApiAndUi.git'
+node {
+    withEnv(["branch=${branch_cutted}", "base_url=${base_git_url}"]) {
+        stage("Checkout Branch") {
+            if (!"$branch_cutted".contains("main")) {
+                try {
+                    getProject("$base_git_url", "$branch_cutted")
+                } catch (err) {
+                    echo "Failed get branch $branch_cutted"
+                    throw ("${err}")
+                }
+            } else {
+                echo "Current branch is main"
             }
         }
 
-        stage('Set Permissions') {
-            steps {
-                sh 'chmod +x gradlew'
-                sh 'mkdir -p build/allure-results'
+
+        try {
+            stage("Run tests") {
+                parallel(
+                        'Api Tests': {
+                            runTestWithTag("API")
+                        },
+                        'Ui Tests': {
+                            runTestWithTag("UI","browser_selenoid")
+                        }
+                )
             }
-        }
-
-        stage('Run Tests') {
-            failFast false
-            parallel {
-                stage('API Tests') {
-                    steps {
-                        script {
-                            try {
-                                // API тесты без properties файла
-                                sh './gradlew clean test -Dtag=API'
-                            } catch (e) {
-                                echo "API tests failed: ${e.getMessage()}"
-                                currentBuild.result = 'UNSTABLE'
-                            }
-                        }
-                    }
-                    post {
-                        always {
-                            sh 'mkdir -p build/allure-results/api'
-                            sh 'cp -r build/test-results/test/* build/allure-results/api/ || true'
-                        }
-                    }
-                }
-
-                stage('UI Tests') {
-                    steps {
-                        script {
-                            try {
-                                // Чтение настроек UI из browser_selenoid.properties
-                                def uiProps = readProperties file: 'resources/configs/browser_selenoid.properties'
-                                sh """
-                                    ./gradlew clean test \
-                                    -Dtag=UI \
-                                    -DrunIn=browser_selenoid \
-                                    -Dselenoid.url=${uiProps['ui.remote']} \
-                                    -Dbrowser=${uiProps['ui.browser']} \
-                                    -Dbrowser.version=${uiProps['ui.browser.version']} \
-                                    -Dheadless=${uiProps['ui.headless']} \
-                                    -DbaseUrl=${uiProps['ui.url']} \
-                                    -Dbrowser.size=${uiProps['ui.browser.size']} \
-                                    -Dtimeout=${uiProps['ui.browser.timeOut']} \
-                                    -DpageLoadTimeout=${uiProps['ui.pageLoadTimeout']}
-                                """
-                            } catch (e) {
-                                echo "UI tests failed: ${e.getMessage()}"
-                                currentBuild.result = 'UNSTABLE'
-                            }
-                        }
-                    }
-                    post {
-                        always {
-                            sh 'mkdir -p build/allure-results/ui'
-                            sh 'cp -r build/test-results/test/* build/allure-results/ui/ || true'
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Generate Allure Report') {
-            steps {
-                script {
-                    sh 'mkdir -p build/allure-results/combined'
-                    sh 'cp -r build/allure-results/api/* build/allure-results/combined/ || true'
-                    sh 'cp -r build/allure-results/ui/* build/allure-results/combined/ || true'
-
-                    allure([
-                            includeProperties: false,
-                            report: 'build/allure-report',
-                            results: [[path: 'build/allure-results/combined']]
-                    ])
-                }
+        } finally {
+            stage("Allure") {
+                generateAllure()
             }
         }
     }
+}
 
-    post {
-        always {
-            sh 'rm -rf build/allure-results || true'
-            archiveArtifacts artifacts: 'build/allure-report/**', fingerprint: true, allowEmptyArchive: true
-            cleanWs()
-        }
-        success {
-            slackSend channel: '#reports',
-                    message: "Тесты завершены. Allure отчет: ${env.BUILD_URL}allure/"
-        }
-        unstable {
-            slackSend channel: '#reports',
-                    message: "Некоторые тесты упали. Allure отчет: ${env.BUILD_URL}allure/"
-        }
-        failure {
-            slackSend channel: '#reports',
-                    message: "Сборка провалена. Подробности: ${env.BUILD_URL}"
+
+def getTestStages(testTags) {
+    def stages = [:]
+    testTags.each { tag ->
+        stages["${tag}"] = {
+            runTestWithTag(tag)
         }
     }
+    return stages
+}
+
+
+def runTestWithTag(String tag, String runIn = null) {
+    try {
+        // Формируем команду Gradle
+        def gradleCommand = "./gradlew clean test -Dtag=${tag}"
+
+        // Добавляем параметр runIn если он указан
+        if (runIn) {
+            gradleCommand += " -DrunIn=${runIn}"
+        }
+
+        // Выполняем команду с лейблом
+        labelledShell(label: "Run ${tag}" + (runIn ? " (${runIn})" : ""),
+                script: """
+                    chmod +x gradlew
+                    ${gradleCommand}
+                    """)
+
+        return true
+    } catch (Exception e) {
+        echo "Some tests failed for ${tag}: ${e.getMessage()}"
+        currentBuild.result = 'UNSTABLE'
+        return false
+    }
+}
+
+def getProject(String repo, String branch) {
+    cleanWs()
+    checkout scm: [
+            $class           : 'GitSCM', branches: [[name: branch]],
+            userRemoteConfigs: [[
+                                        url: repo
+                                ]]
+    ]
+}
+
+def generateAllure() {
+    allure([
+            includeProperties: true,
+            jdk              : '',
+            properties       : [],
+            reportBuildPolicy: 'ALWAYS',
+            results          : [[path: 'build/allure-results']]
+    ])
 }
