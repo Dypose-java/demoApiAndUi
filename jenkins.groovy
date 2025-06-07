@@ -4,16 +4,9 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                checkout([
-                        $class: 'GitSCM',
-                        branches: [[name: '*/main']],  // Явно указываем ветку
-                        extensions: [],
-                        userRemoteConfigs: [[
-                                                    url: 'https://github.com/Dypose-java/demoApiAndUi.git',
-                                                    credentialsId: ''  // Оставьте пустым для публичного репозитория
-                                            ]]
-                ])
-                sh 'chmod +x gradlew'  // Даем права на выполнение
+                git branch: 'master',
+                        url: 'https://github.com/Dypose-java/demoApiAndUi.git'
+                sh 'chmod +x gradlew'
             }
         }
 
@@ -26,7 +19,20 @@ pipeline {
                 }
                 stage('UI Tests') {
                     steps {
-                        sh './gradlew clean test -Dtag=UI -DrunIn=browser_local'
+                        script {
+                            // Генерируем уникальный user-data-dir для каждого запуска
+                            def userDataDir = "/tmp/chrome-profile-${UUID.randomUUID()}"
+
+                            sh """
+                                ./gradlew clean test \
+                                -Dtag=UI \
+                                -DrunIn=browser_local \
+                                -Dchrome.args="--user-data-dir=${userDataDir}" 
+                            """
+
+                            // Очищаем временный профиль
+                            sh "rm -rf ${userDataDir} || true"
+                        }
                     }
                 }
             }
@@ -35,11 +41,9 @@ pipeline {
 
     post {
         always {
-            allure([
-                    includeProperties: false,
+            allure includeProperties: false,
                     results: [[path: 'build/allure-results']],
                     report: 'build/allure-report'
-            ])
             cleanWs()
         }
     }
