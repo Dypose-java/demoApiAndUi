@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     environment {
+        SELENOID_URL = 'http://127.0.0.1:4444/wd/hub'
         ALLURE_RESULTS = 'build/allure-results'
         ALLURE_REPORT = 'build/allure-report'
     }
@@ -15,7 +16,18 @@ pipeline {
 
         stage('Set Permissions') {
             steps {
-                sh 'chmod +x gradlew'  // Критически важный этап
+                sh 'chmod +x gradlew'
+            }
+        }
+
+        stage('Check Selenoid') {
+            steps {
+                script {
+                    sh '''
+                        echo "Checking Selenoid connection..."
+                        curl -v $SELENOID_URL/status || true
+                    '''
+                }
             }
         }
 
@@ -25,18 +37,24 @@ pipeline {
             }
             post {
                 always {
-                    allure includeProperties: false, results: [[path: 'build/allure-results/api']]
+                    allure includeProperties: false, results: [[path: 'build/allure-results']]
                 }
             }
         }
 
         stage('Run UI Tests') {
             steps {
-                sh './gradlew test -Dtag=UI -DrunIn=browser_selenoid'
+                script {
+                    sh """
+                        ./gradlew test \
+                        -Dtag=UI \
+                        -DrunIn=browser_selenoid 
+                    """
+                }
             }
             post {
                 always {
-                    allure includeProperties: false, results: [[path: 'build/allure-results/ui']]
+                    allure includeProperties: false, results: [[path: 'build/allure-results']]
                 }
             }
         }
@@ -44,13 +62,11 @@ pipeline {
         stage('Generate Allure Report') {
             steps {
                 script {
-                    sh 'mkdir -p build/allure-results/combined'
-                    sh 'cp -r build/allure-results/api/* build/allure-results/combined/ || true'
-                    sh 'cp -r build/allure-results/ui/* build/allure-results/combined/ || true'
+                    sh 'mkdir -p build/allure-results'
                     allure([
                             includeProperties: false,
                             report: 'build/allure-report',
-                            results: [[path: 'build/allure-results/combined']]
+                            results: [[path: 'build/allure-results']]
                     ])
                 }
             }
@@ -59,6 +75,7 @@ pipeline {
 
     post {
         always {
+            archiveArtifacts artifacts: 'build/allure-report/**', fingerprint: true
             cleanWs()
         }
     }
