@@ -4,8 +4,16 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git 'https://github.com/Dypose-java/demoApiAndUi.git'
-                sh 'chmod +x gradlew'
+                checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],  // Явно указываем ветку
+                        extensions: [],
+                        userRemoteConfigs: [[
+                                                    url: 'https://github.com/Dypose-java/demoApiAndUi.git',
+                                                    credentialsId: ''  // Оставьте пустым для публичного репозитория
+                                            ]]
+                ])
+                sh 'chmod +x gradlew'  // Даем права на выполнение
             }
         }
 
@@ -27,9 +35,11 @@ pipeline {
 
     post {
         always {
-            allure includeProperties: false,
+            allure([
+                    includeProperties: false,
                     results: [[path: 'build/allure-results']],
                     report: 'build/allure-report'
+            ])
             cleanWs()
         }
     }
